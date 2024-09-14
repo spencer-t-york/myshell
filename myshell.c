@@ -64,7 +64,6 @@ int main(void) {
                 err_sys("fork error");
             } else if (pid1 == 0) {
                 close(p[0]);                // clear pipe read data
-                // TODO: change dup2() to dup() -----------------------------------------------------
                 close(STDOUT_FILENO);    // close fd 1 so it's the lowest fd open
                 dup(p[1]);                  // write pipe output (this goes to the lowest fd open)
                 close(p[1]);                // clear pipe write data
@@ -79,7 +78,6 @@ int main(void) {
                 err_sys("fork error");
             } else if (pid2 == 0) {
                 close(p[1]);               // clear pipe write data
-                // TODO: change dup2() to dup() -----------------------------------------------------
                 close(STDIN_FILENO);    // close fd 0 so it's the lowest fd open
                 dup(p[0]);                 // reads pipe input (this goes to the lowest fd open)
                 close(p[0]);               // clear pipe read data
