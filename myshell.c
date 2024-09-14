@@ -75,7 +75,10 @@ int main(void) {
             execvp(args[0], args); // replace process with specifed process in args[]
             err_ret("couldn't execute: %s", buf); // if execvp fails, return error
             _exit(127);
-        } else {
+        } 
+        /* ----- PARENT PROCESS ----- */
+        else {
+            // wait for child to finish
             if ((pid = waitpid(pid, &status, 0)) < 0)
                 err_sys("waitpid error");
             print_prompt();
