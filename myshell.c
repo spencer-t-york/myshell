@@ -40,14 +40,14 @@ int main(void) {
             if (args[1] == NULL) {
                 fprintf(stderr, "cd: missing argument\n"); // Handle missing argument
             } else if (chdir(args[1]) != 0) {
-                    perror("cd"); // Print error if chdir fails
+                perror("cd"); // Print error if chdir fails
             }
             printf("%s %% ", strrchr(gnu_getcwd(), '/') + 1);
             continue;
         }
 
         // pipe command
-        int pipe_pos = find_pipe(args);
+        int const pipe_pos = find_pipe(args);
         if (pipe_pos != -1) {
             args[pipe_pos] = NULL; // set the pipe = NULL
             char **args_l = args, **args_r = &args[pipe_pos+1]; // split args left and right of pipe
@@ -64,12 +64,14 @@ int main(void) {
                 err_sys("fork error");
             } else if (pid1 == 0) {
                 close(p[0]);                // clear pipe read data
-                dup2(p[1], STDOUT_FILENO);  // write pipe output
+                // TODO: change dup2() to dup() -----------------------------------------------------
+                close(STDOUT_FILENO);    // close fd 1 so it's the lowest fd open
+                dup(p[1]);                  // write pipe output (this goes to the lowest fd open)
                 close(p[1]);                // clear pipe write data
 
-                execvp(args_l[0], args_l);  // execute left left
+                execvp(args_l[0], args_l);  // execute left side
                 err_ret("couldn't execute: %s", args_l[0]); // if execvp fails, return error
-                exit(127);
+                _exit(127);
             }
 
             // right side
@@ -77,12 +79,14 @@ int main(void) {
                 err_sys("fork error");
             } else if (pid2 == 0) {
                 close(p[1]);               // clear pipe write data
-                dup2(p[0], STDIN_FILENO);  // reads pipe input
+                // TODO: change dup2() to dup() -----------------------------------------------------
+                close(STDIN_FILENO);    // close fd 0 so it's the lowest fd open
+                dup(p[0]);                 // reads pipe input (this goes to the lowest fd open)
                 close(p[0]);               // clear pipe read data
 
                 execvp(args_r[0], args_r);  // execute right side
                 err_ret("couldn't execute: %s", args_r[0]); // if execvp fails, return error
-                exit(127);
+                _exit(127);
             }
 
             close(p[0]);  // close both ends in parent
@@ -105,11 +109,11 @@ int main(void) {
         /* ----- CHILD PROCESS ----- */
         else if (pid == 0) {
             if (!strcmp(args[0], "quit")) {      // if "quit" is entered
-                exit(0);                             // exit child process
+                _exit(0);                             // exit child process
             } else {
                 execvp(args[0], args); // replace process with specifed process in args[]
                 err_ret("couldn't execute: %s", buf); // if execvp fails, return error
-                exit(127);
+                _exit(127);
             }
         }
 
