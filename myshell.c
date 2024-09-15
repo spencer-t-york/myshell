@@ -1,4 +1,5 @@
 // IMPORTS
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,15 +16,17 @@ static void err_doit(int , int , const char *, va_list);
 void err_ret(const char *, ...);
 void err_sys(const char *, ...);
 
-char *gnu_getcwd();         // return current directory
-char **split(char *);       // split shell args
-int find_pipe(char **);     // find pipe character in array
-void print_prompt(); // print prompt and shows the current directory
-char *find_path(char *);   // find the path of the specified executable
+char *gnu_getcwd();              // return current directory
+char **split(char *);            // split shell args
+int find_pipe(char **);          // find pipe character in array
+int *find_redirects(char **);    // find i/o redirections characters in array
+void print_prompt();             // print prompt and shows the current directory
+char *find_path(char *);         // find the path of the specified executable
 
 // commands
-void cd_command(char **);             // cd command
-void pipe_command(char **, int, int); // pipe command
+void cd_command(char **);                         // cd command
+void pipe_command(char **, int, int);             // pipe command
+void redirection_command(char **, int, int, int); // redirection command
 
 
 // MAIN FUNCTION
@@ -53,17 +56,20 @@ int main(void) {
             continue;
         }
 
-        if (!strcmp(args[0], "path")) {
-            // if "cd" is entered
-            const char* s = getenv(args[1]);
-            printf("getenv returns: %s", s);
-            continue;
-        }
-
         // pipe command
         int const pipe_pos = find_pipe(args);
         if (pipe_pos != -1) {
             pipe_command(args, pipe_pos, status);
+            continue;
+        }
+
+        // i/o redirection
+        int *redir_pos = find_redirects(args);              // find position of redirection symbols and return array
+        int left_arrow_pos = redir_pos[0];
+        int right_arrow_pos = redir_pos[1];
+
+        if (left_arrow_pos != -1 || right_arrow_pos != -1) {        // If at least one symbol is found...
+            redirection_command(args, left_arrow_pos, right_arrow_pos, status);
             continue;
         }
 
@@ -78,12 +84,14 @@ int main(void) {
             err_sys("fork error"); // return error
         }
 
-        /* ----- CHILD PROCESS ----- */
+        // CHILD PROCESS //
         else if (pid == 0) {
             execv(find_path(args[0]), args);
-            err_ret("couldn't execute: %s", buf); // if execv fails, return error
+            err_ret("couldn't execute: %s", buf); // if execv() fails, return error
             _exit(127);
-        } else {
+        }
+        // PARENT PROCESS //
+        else {
             if ((pid = waitpid(pid, &status, 0)) < 0)
                 err_sys("waitpid error");
             print_prompt();
@@ -93,7 +101,7 @@ int main(void) {
 }
 
 
-// ------------------------------ FUNCTIONS ------------------------------ //
+// ------------------------------------ FUNCTIONS ------------------------------------ //
 
 // ------ ERROR HANDLING ------ //
 static void err_doit(int errnoflag, int error, const char *fmt, va_list ap) {
@@ -129,7 +137,7 @@ char *gnu_getcwd ()
 
   while (1)
     {
-      char *buffer = (char *) malloc (size);
+      char *buffer = (char *)malloc(size);
       if (getcwd (buffer, size) == buffer)
         return buffer;
       free (buffer);
@@ -177,6 +185,27 @@ int find_pipe(char **args) {
         }
     }
     return -1;
+}
+
+// ------ FIND LOCATION OF I/O REDIRECTS ------ //
+int* find_redirects(char **args) {
+    int left_arrow_location = -1;  // "<" character location (set to -1 initially)
+    int right_arrow_location = -1; // ">" character location (set to -1 initially)
+    int *locations = malloc(2 * sizeof(int)); // array to hold both values
+
+    for (int i = 0; args[i] != NULL; i++) { // loop through buffer
+        if (strcmp(args[i], "<") == 0) {    // if "<" is found...
+            left_arrow_location = i;
+        }
+        if (strcmp(args[i], ">") == 0) {    // if ">" is found...
+            right_arrow_location = i;
+        }
+    }
+
+    locations[0] = left_arrow_location;
+    locations[1] = right_arrow_location;
+
+    return locations;
 }
 
 // ------ FIND LOCATION OF COMMAND EXECUTABLE ------ //
@@ -238,7 +267,7 @@ void pipe_command(char **args, int pipe_pos, int status) {
         dup(p[1]);                  // write pipe output (this goes to the lowest fd open)
         close(p[1]);                // clear pipe write data
         execv(find_path(args_l[0]), args_l);  // execute left side
-        err_ret("couldn't execute: %s", args_l[0]); // if execv fails, return error
+        err_ret("couldn't execute: %s", args_l[0]); // if execv() fails, return error
         _exit(127);
     }
 
@@ -252,7 +281,7 @@ void pipe_command(char **args, int pipe_pos, int status) {
         close(p[0]);               // clear pipe read data
 
         execv(find_path(args_r[0]), args_r); // execute right side
-        err_ret("couldn't execute: %s", args_r[0]); // if execv fails, return error
+        err_ret("couldn't execute: %s", args_r[0]); // if execv() fails, return error
         _exit(127);
     }
 
@@ -263,6 +292,63 @@ void pipe_command(char **args, int pipe_pos, int status) {
         err_sys("waitpid error");
 
     if (waitpid(pid2, &status, 0) < 0)
+        err_sys("waitpid error");
+
+    print_prompt();
+}
+
+void redirection_command(char **args, int left_arrow_pos, int right_arrow_pos, int status) {
+    pid_t pid;
+    int fd_in = -1, fd_out = -1;
+
+    // IF ARGS CONTAINS "<"
+    if (left_arrow_pos != -1) {
+        args[left_arrow_pos] = NULL;              // set the location of the "<" = NULL
+        char **args_r = &args[left_arrow_pos+1];  // split args right of "<"
+
+        fd_in = open(*args_r, O_RDONLY);     // open file to read
+        if (fd_in < 0) {                          // if opening file was unsuccessful...
+            perror("open");                     // print error message
+            exit(1);
+        }
+    }
+
+    // IF ARGS CONTAINS ">"
+    if (right_arrow_pos != -1) {
+        args[right_arrow_pos] = NULL;              // set the location of the ">" = NULL
+        char **args_r = &args[right_arrow_pos+1];  // split args left and right of ">"
+
+        fd_out = open(*args_r, O_WRONLY| O_CREAT| O_TRUNC, 0666); // open file to write & create if file DNE
+        if (fd_out < 0) {                          // if opening file was unsuccessful...
+            perror("open");                      // print error message
+            exit(1);
+        }
+    }
+
+    if ((pid = fork()) < 0) {        // Fork
+        err_sys("fork error");   // return error if fork() went wrong
+    }
+    // CHILD PROCESS //
+    else if (pid == 0) {
+        if (fd_in != -1) {            // If input file descriptor is valid
+            close(STDIN_FILENO);   // close stdin
+            dup(fd_in);               // read input (this goes to the lowest fd open)
+            close(fd_in);             // close the file's fd
+        }
+
+        if (fd_out != -1) {           // If output fd is assigned to the file as write only
+            close(STDOUT_FILENO);  // close stdin
+            dup(fd_out);              // write output (this goes to the lowest fd open)
+            close(fd_out);            // close the file's fd
+        }
+
+        execv(find_path(args[0]), args);               // execute right side
+        err_ret("couldn't execute: %s", args[0]);  // if execv() fails, return error
+        _exit(127);
+    }
+
+    // PARENT PROCESS //
+    if (waitpid(pid, &status, 0) < 0)
         err_sys("waitpid error");
 
     print_prompt();
