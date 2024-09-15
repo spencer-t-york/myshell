@@ -297,6 +297,7 @@ void pipe_command(char **args, int pipe_pos, int status) {
     print_prompt();
 }
 
+// ------ REDIRECTION COMMAND ------ //
 void redirection_command(char **args, int left_arrow_pos, int right_arrow_pos, int status) {
     pid_t pid;
     int fd_in = -1, fd_out = -1;
