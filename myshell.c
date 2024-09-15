@@ -15,10 +15,11 @@ static void err_doit(int , int , const char *, va_list);
 void err_ret(const char *, ...);
 void err_sys(const char *, ...);
 
-char *gnu_getcwd();     // return current directory
-char **split(char *);   // split shell args
-int find_pipe(char **); // find pipe character in array
-void print_prompt();    // print prompt and shows the current directory
+char *gnu_getcwd();         // return current directory
+char **split(char *);       // split shell args
+int find_pipe(char **);     // find pipe character in array
+void print_prompt(); // print prompt and shows the current directory
+char *find_path(char *);   // find the path of the specified executable
 
 // commands
 void cd_command(char **);             // cd command
@@ -52,6 +53,13 @@ int main(void) {
             continue;
         }
 
+        if (!strcmp(args[0], "path")) {
+            // if "cd" is entered
+            const char* s = getenv(args[1]);
+            printf("getenv returns: %s", s);
+            continue;
+        }
+
         // pipe command
         int const pipe_pos = find_pipe(args);
         if (pipe_pos != -1) {
@@ -65,6 +73,7 @@ int main(void) {
             break; // break out of loop
         }
 
+        // fork error
         if ((pid = fork()) < 0) {  // if fork() fails
             err_sys("fork error"); // return error
         }
@@ -72,13 +81,13 @@ int main(void) {
         /* ----- CHILD PROCESS ----- */
         else if (pid == 0) {
             // TODO: change execvp to execv
-            execvp(args[0], args); // replace process with specifed process in args[]
+            // int execv(const char *path, char *const argv[]);
+            // int execvp(const char *file, char *const argv[]);
+            execv(find_path(args[0]), args);
+            //execvp(args[0], args); // replace process with specifed process in args[]
             err_ret("couldn't execute: %s", buf); // if execvp fails, return error
             _exit(127);
-        } 
-        /* ----- PARENT PROCESS ----- */
-        else {
-            // wait for child to finish
+        } else {
             if ((pid = waitpid(pid, &status, 0)) < 0)
                 err_sys("waitpid error");
             print_prompt();
@@ -134,15 +143,30 @@ char *gnu_getcwd ()
     }
 }
 
-// ------ SPLIT BUFFER BY WHITESPACE FUNCTION ------ //
+// ------ SPLIT BUFFER BY WHITESPACE ------ //
 char **split(char *str) {
     char **newArray = (char **)malloc(MAXLINE * sizeof(char *));
     char *token = strtok(str, " ");
-    int i =  0;
+    int i = 0;
 
     while (token != NULL && i < MAXLINE - 1) {
         newArray[i++] = token;
         token = strtok(NULL, " ");
+    }
+    newArray[i] = NULL;
+
+    return newArray;
+}
+
+// ------ SPLIT COMMAND PATHS BY COLON ------ //
+char **split_cmd_dirs(char *str) {
+    char **newArray = (char **)malloc(MAXLINE * sizeof(char *));
+    char *token = strtok(str, ":");
+    int i = 0;
+
+    while (token != NULL && i < MAXLINE - 1) {
+        newArray[i++] = token;
+        token = strtok(NULL, ":");
     }
     newArray[i] = NULL;
 
@@ -157,6 +181,30 @@ int find_pipe(char **args) {
         }
     }
     return -1;
+}
+
+// ------ FIND LOCATION OF COMMAND EXECUTABLE ------ //
+char *find_path(char *executable) {
+    // store directories of commands in cmd_dir
+    char *cmd_dirs = getenv("PATH");
+
+    // split all directories to be stored in the path array
+    char **path = split_cmd_dirs(cmd_dirs);
+    char full_path[MAXLINE];
+
+    for (int i = 0; path[i] != NULL; i++) {
+        // tack on the file name to the end of the path
+        snprintf(full_path, sizeof(full_path), "%s/%s", path[i], executable);
+
+        // check if path exists
+        if (access(full_path, F_OK) == 0) {
+            free(path);
+            return strdup(full_path);
+        }
+    }
+
+    free(path);
+    return NULL;
 }
 
 void print_prompt() {
@@ -193,8 +241,8 @@ void pipe_command(char **args, int pipe_pos, int status) {
         close(STDOUT_FILENO);    // close fd 1 so it's the lowest fd open
         dup(p[1]);                  // write pipe output (this goes to the lowest fd open)
         close(p[1]);                // clear pipe write data
-        // TODO: change execvp to execv
-        execvp(args_l[0], args_l);  // execute left side
+        execv(find_path(args_l[0]), args_l);
+        //execvp(args_l[0], args_l);  // execute left side
         err_ret("couldn't execute: %s", args_l[0]); // if execvp fails, return error
         _exit(127);
     }
@@ -208,8 +256,8 @@ void pipe_command(char **args, int pipe_pos, int status) {
         dup(p[0]);                 // reads pipe input (this goes to the lowest fd open)
         close(p[0]);               // clear pipe read data
 
-        // TODO: change execvp to execv
-        execvp(args_r[0], args_r);  // execute right side
+        execv(find_path(args_r[0]), args_r);
+        //execvp(args_r[0], args_r);  // execute right side
         err_ret("couldn't execute: %s", args_r[0]); // if execvp fails, return error
         _exit(127);
     }
