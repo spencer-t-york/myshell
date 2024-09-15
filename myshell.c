@@ -80,12 +80,8 @@ int main(void) {
 
         /* ----- CHILD PROCESS ----- */
         else if (pid == 0) {
-            // TODO: change execvp to execv
-            // int execv(const char *path, char *const argv[]);
-            // int execvp(const char *file, char *const argv[]);
             execv(find_path(args[0]), args);
-            //execvp(args[0], args); // replace process with specifed process in args[]
-            err_ret("couldn't execute: %s", buf); // if execvp fails, return error
+            err_ret("couldn't execute: %s", buf); // if execv fails, return error
             _exit(127);
         } else {
             if ((pid = waitpid(pid, &status, 0)) < 0)
@@ -241,9 +237,8 @@ void pipe_command(char **args, int pipe_pos, int status) {
         close(STDOUT_FILENO);    // close fd 1 so it's the lowest fd open
         dup(p[1]);                  // write pipe output (this goes to the lowest fd open)
         close(p[1]);                // clear pipe write data
-        execv(find_path(args_l[0]), args_l);
-        //execvp(args_l[0], args_l);  // execute left side
-        err_ret("couldn't execute: %s", args_l[0]); // if execvp fails, return error
+        execv(find_path(args_l[0]), args_l);  // execute left side
+        err_ret("couldn't execute: %s", args_l[0]); // if execv fails, return error
         _exit(127);
     }
 
@@ -256,9 +251,8 @@ void pipe_command(char **args, int pipe_pos, int status) {
         dup(p[0]);                 // reads pipe input (this goes to the lowest fd open)
         close(p[0]);               // clear pipe read data
 
-        execv(find_path(args_r[0]), args_r);
-        //execvp(args_r[0], args_r);  // execute right side
-        err_ret("couldn't execute: %s", args_r[0]); // if execvp fails, return error
+        execv(find_path(args_r[0]), args_r); // execute right side
+        err_ret("couldn't execute: %s", args_r[0]); // if execv fails, return error
         _exit(127);
     }
 
