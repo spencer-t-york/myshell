@@ -9,6 +9,8 @@
 #include <sys/wait.h>
 #define MAXLINE 4096 // max length for input
 
+char path[MAXLINE]; // custom path variable
+
 
 // DEFINE FUNCTIONS
 // Error Handling
@@ -33,9 +35,9 @@ void redirection_command(char **, int, int, int); // redirection command
 // MAIN FUNCTION
 int main(void) {
     // Variables
-    char   buf[MAXLINE];
-    pid_t  pid;
-    int    status;
+    char  buf[MAXLINE];
+    pid_t pid;
+    int   status;
 
     print_prompt();
     while (fgets(buf, MAXLINE, stdin) != NULL) {
@@ -217,25 +219,22 @@ int* find_redirects(char **args) {
 
 // ------ FIND LOCATION OF COMMAND EXECUTABLE ------ //
 char *find_path(char *executable) {
-    // store directories of commands in cmd_dir
-    char *cmd_dirs = getenv("PATH");
-
     // split all directories to be stored in the path array
-    char **path = split_cmd_dirs(cmd_dirs);
-    char full_path[MAXLINE];
+    char **split_path = split_cmd_dirs(path);
+    char path_with_executable[MAXLINE];
 
-    for (int i = 0; path[i] != NULL; i++) {
+    for (int i = 0; split_path[i] != NULL; i++) {
         // tack on the file name to the end of the path
-        snprintf(full_path, sizeof(full_path), "%s/%s", path[i], executable);
+        snprintf(path_with_executable, sizeof(path_with_executable), "%s/%s", split_path[i], executable);
 
         // check if path exists
-        if (access(full_path, F_OK) == 0) {
-            free(path);
-            return strdup(full_path);
+        if (access(path_with_executable, F_OK) == 0) {
+            free(split_path);
+            return strdup(path_with_executable);
         }
     }
 
-    free(path);
+    free(split_path);
     return NULL;
 }
 
@@ -256,25 +255,29 @@ void cd_command(char **args) {
 
 // ------ PATH COMMAND ------ //
 void path_command(char **args) {
-    char *cmd_dirs = getenv("PATH");
-
     if (args[1] == NULL) {
-        printf("%s\n", cmd_dirs);
+        printf("%s\n", path);
     }
 
-    else if (strcmp(args[1], "+") == 0) {                // if + is entered after path command...
-        if (args[2][0] != '/') {                         // if new directory doesn't begin with '/'...
-            strncat(cmd_dirs, ":/", 2);            // ...then add :/ before new directory
+    else if (strcmp(args[1], "+") == 0) {            // if + is entered after path command...
+        if (args[2][0] != '/') {                     // if new directory doesn't begin with '/'...
+            strncat(path, ":/", 2);            // ...then add :/ before new directory
         } else {
-            strncat(cmd_dirs, ":", 1);             // ...otherwise, add ":" before new directory
+            strncat(path, ":", 1);             // ...otherwise, add ":" before new directory
         }
-        strncat(cmd_dirs, args[2], sizeof(args[2]));   // append new directory to PATH
-        printf("%s\n", cmd_dirs);                  // print new PATH
+        strncat(path, args[2], strlen(args[2]));   // append new directory to PATH
+        printf("%s\n", path);                  // print new PATH
     }
     else if (strcmp(args[1], "-") == 0) {
-        if (strstr(cmd_dirs, args[2]) != NULL) { // if cmd_dirs contains the new directory as a substring
-            int index = strstr(cmd_dirs, args[2]) - cmd_dirs; // determine starting character for substring
-            cmd_dirs[index-1] = '\0';  // remove new path added by setting to \0. (it's -1 for the colon)
+        if (strstr(path, args[2]) != NULL) { // if cmd_dirs contains the new directory as a substring
+            int start_index = strstr(path, args[2]) - path; // determine starting character for substring
+            int end_index = start_index + strlen(args[2]);                // determine ending character for substring
+
+            if (start_index != 0 && path[start_index - 1] == ':') {
+                memmove(path + start_index - 1, path + end_index, strlen(args[2])+1); // remove new path (start_index -1 to account for preceding colon)
+            } else {
+                memmove(path + start_index, path + end_index, strlen(args[2])+1); // remove new path
+            }
         }
     }
     print_prompt();
