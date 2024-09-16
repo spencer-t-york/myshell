@@ -25,6 +25,7 @@ char *find_path(char *);         // find the path of the specified executable
 
 // commands
 void cd_command(char **);                         // cd command
+void path_command(char **);                       // redirection command
 void pipe_command(char **, int, int);             // pipe command
 void redirection_command(char **, int, int, int); // redirection command
 
@@ -45,21 +46,27 @@ int main(void) {
         char **args = split(buf);  // split buffer by white-spaces and save to the args array
 
         // empty command
-        if (args[0] == NULL) {
-            print_prompt();
+        if (args[0] == NULL) { // if nothing is entered...
+            print_prompt();    // ...print the prompt again
             continue;
         }
 
         // cd command
-        if (!strcmp(args[0], "cd")) { // if "cd" is entered
+        if (!strcmp(args[0], "cd")) { // if "cd" is entered...
             cd_command(args);         // ...call cd command
             continue;
         }
 
+        // path command
+        if (!strcmp(args[0], "path")) { // if "path" is entered...
+            path_command(args);         // ...call path command
+            continue;
+        }
+
         // pipe command
-        int const pipe_pos = find_pipe(args);
-        if (pipe_pos != -1) {
-            pipe_command(args, pipe_pos, status);
+        int const pipe_pos = find_pipe(args);       // find the pipe position in argument
+        if (pipe_pos != -1) {                       // if a pipe exists...
+            pipe_command(args, pipe_pos, status);   // ...call pipe command
             continue;
         }
 
@@ -68,8 +75,8 @@ int main(void) {
         int left_arrow_pos = redir_pos[0];
         int right_arrow_pos = redir_pos[1];
 
-        if (left_arrow_pos != -1 || right_arrow_pos != -1) {        // If at least one symbol is found...
-            redirection_command(args, left_arrow_pos, right_arrow_pos, status);
+        if (left_arrow_pos != -1 || right_arrow_pos != -1) {                    // If at least one symbol is found...
+            redirection_command(args, left_arrow_pos, right_arrow_pos, status); //...call redirection command
             continue;
         }
 
@@ -80,20 +87,20 @@ int main(void) {
         }
 
         // fork error
-        if ((pid = fork()) < 0) {  // if fork() fails
-            err_sys("fork error"); // return error
+        if ((pid = fork()) < 0) {      // if fork() fails...
+            err_sys("fork error"); // ...return error
         }
 
         // CHILD PROCESS //
-        else if (pid == 0) {
-            execv(find_path(args[0]), args);
+        else if (pid == 0) {                          // if child...
+            execv(find_path(args[0]), args);          // ...run entered command with execv()
             err_ret("couldn't execute: %s", buf); // if execv() fails, return error
             _exit(127);
         }
         // PARENT PROCESS //
-        else {
-            if ((pid = waitpid(pid, &status, 0)) < 0)
-                err_sys("waitpid error");
+        else {                                                 // if parent...
+            if ((pid = waitpid(pid, &status, 0)) < 0)   // ...wait for child to finish
+                err_sys("waitpid error");                  // otherwise, return error
             print_prompt();
         }
     }
@@ -232,6 +239,7 @@ char *find_path(char *executable) {
     return NULL;
 }
 
+// ------ PRINT PROMPT / SHOW CURRENT DIRECTORY ------ //
 void print_prompt() {
     printf("%s %% ", strrchr(gnu_getcwd(), '/') + 1);
 }
@@ -244,6 +252,32 @@ void cd_command(char **args) {
         perror("cd"); // Print error if chdir() fails
     }
     print_prompt(); // Print prompt after handling cd command
+}
+
+// ------ PATH COMMAND ------ //
+void path_command(char **args) {
+    char *cmd_dirs = getenv("PATH");
+
+    if (args[1] == NULL) {
+        printf("%s\n", cmd_dirs);
+    }
+
+    else if (strcmp(args[1], "+") == 0) {                // if + is entered after path command...
+        if (args[2][0] != '/') {                         // if new directory doesn't begin with '/'...
+            strncat(cmd_dirs, ":/", 2);            // ...then add :/ before new directory
+        } else {
+            strncat(cmd_dirs, ":", 1);             // ...otherwise, add ":" before new directory
+        }
+        strncat(cmd_dirs, args[2], sizeof(args[2]));   // append new directory to PATH
+        printf("%s\n", cmd_dirs);                  // print new PATH
+    }
+    else if (strcmp(args[1], "-") == 0) {
+        if (strstr(cmd_dirs, args[2]) != NULL) { // if cmd_dirs contains the new directory as a substring
+            int index = strstr(cmd_dirs, args[2]) - cmd_dirs; // determine starting character for substring
+            cmd_dirs[index-1] = '\0';  // remove new path added by setting to \0. (it's -1 for the colon)
+        }
+    }
+    print_prompt();
 }
 
 // ------ PIPE COMMAND ------ //
