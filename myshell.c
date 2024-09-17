@@ -263,7 +263,7 @@ void path_command(char **args) {
         if (args[2][0] != '/') {                     // if new directory doesn't begin with '/'...
             err_ret("director %s must begin with a /", args[2]); // return error
         } else {
-            strncat(path, ":", 1);              // ...otherwise, add ":" before the new directory
+            strncat(path, ":", strlen(":"));              // ...otherwise, add ":" before the new directory
             strncat(path, args[2], strlen(args[2]));   // append new directory to PATH
             printf("%s\n", path);                  // print new PATH
         }
@@ -274,11 +274,7 @@ void path_command(char **args) {
 
         if (strstr(path, args[2]) != NULL) { // if cmd_dirs contains the new directory as a substring
 
-            if (path[end_index] == ':') {
-                if (path[end_index] == '\0') {                               // if the substring is at the end of path...
-                    path[start_index] = '\0';                                // ...set the start of the substring to '\0'
-                }
-
+            if (path[end_index] == ':') {                                    // if the ending of the substring is ':'...
                 if (start_index != 0 && path[start_index - 1] == ':') {      // if the substring is preceded by a ":"...
                     start_index--;                                           // ...adjust start_index to be at the ":"
                 }
@@ -286,10 +282,14 @@ void path_command(char **args) {
                 for (int i = 0; i < strlen(path) - start_index; i++) {
                     path[start_index + i] = path[end_index + i];             // shift all right values over
                 }
+            } else if (path[end_index] == '\0') {                            // if the substring is at the end of path...
+                if (start_index != 0 && path[start_index - 1] == ':') {      // if the substring is preceded by a ":"...
+                    start_index--;                                           // ...adjust start_index to be at the ":"
+                }
+                path[start_index] = '\0';                                    // ...set the start of the substring to '\0'
             } else {
                 err_ret("please enter the full directory to be removed");
             }
-
         } else {
             err_ret("No directory in PATH called %s", args[2]);      // return error if no match
         }
