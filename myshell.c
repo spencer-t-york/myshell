@@ -263,9 +263,9 @@ void path_command(char **args) {
         if (args[2][0] != '/') {                     // if new directory doesn't begin with '/'...
             err_ret("director %s must begin with a /", args[2]); // return error
         } else {
-            strncat(path, ":", strlen(":"));              // ...otherwise, add ":" before the new directory
+            strcat(path, ":");                  // ...otherwise, add ":" before the new directory
             strncat(path, args[2], strlen(args[2]));   // append new directory to PATH
-            printf("%s\n", path);                  // print new PATH
+            printf("%s\n", path);              // print new PATH
         }
     }
     else if (strcmp(args[1], "-") == 0) {
@@ -394,7 +394,7 @@ void redirection_command(char **args, int left_arrow_pos, int right_arrow_pos, i
             close(fd_out);            // close the file's fd
         }
 
-        execv(find_path(args[0]), args);               // execute right side
+        execv(find_path(args[0]), args);               // execute left side
         err_ret("couldn't execute: %s", args[0]);  // if execv() fails, return error
         _exit(127);
     }
