@@ -255,29 +255,40 @@ void cd_command(char **args) {
 
 // ------ PATH COMMAND ------ //
 void path_command(char **args) {
+    char before_path[MAXLINE];
+    char after_path[MAXLINE];
     if (args[1] == NULL) {
         printf("%s\n", path);
     }
 
     else if (strcmp(args[1], "+") == 0) {            // if + is entered after path command...
         if (args[2][0] != '/') {                     // if new directory doesn't begin with '/'...
-            strncat(path, ":/", 2);            // ...then add :/ before new directory
+            err_ret("director %s must begin with a /", args[2]); // return error
         } else {
-            strncat(path, ":", 1);             // ...otherwise, add ":" before new directory
+            strncat(path, ":", 1);              // ...otherwise, add ":" before the new directory
+            strncat(path, args[2], strlen(args[2]));   // append new directory to PATH
+            printf("%s\n", path);                  // print new PATH
         }
-        strncat(path, args[2], strlen(args[2]));   // append new directory to PATH
-        printf("%s\n", path);                  // print new PATH
     }
     else if (strcmp(args[1], "-") == 0) {
         if (strstr(path, args[2]) != NULL) { // if cmd_dirs contains the new directory as a substring
             int start_index = strstr(path, args[2]) - path; // determine starting character for substring
             int end_index = start_index + strlen(args[2]);                // determine ending character for substring
 
-            if (start_index != 0 && path[start_index - 1] == ':') {
-                memmove(path + start_index - 1, path + end_index, strlen(args[2])+1); // remove new path (start_index -1 to account for preceding colon)
-            } else {
-                memmove(path + start_index, path + end_index, strlen(args[2])+1); // remove new path
+            if (start_index != 0 && path[start_index - 1] == ':') {      // if the substring is preceded by a ":"...
+                start_index--;                                           // ...adjust start_index to be at the ":"
             }
+
+            if (path[end_index] == '\0') {                               // if the substring is at the end of path...
+                path[start_index] = '\0';                                // ...set the start of the substring to '\0'
+            }
+
+            for (int i = 0; i < strlen(path) - start_index; i++) {
+                path[start_index + i] = path[end_index + i];             // shift all right values over
+            }
+
+        } else {
+            err_ret("No directory in PATH called %s", args[2]);      // return error if no match
         }
     }
     print_prompt();
