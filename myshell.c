@@ -255,8 +255,6 @@ void cd_command(char **args) {
 
 // ------ PATH COMMAND ------ //
 void path_command(char **args) {
-    char before_path[MAXLINE];
-    char after_path[MAXLINE];
     if (args[1] == NULL) {
         printf("%s\n", path);
     }
@@ -271,20 +269,25 @@ void path_command(char **args) {
         }
     }
     else if (strcmp(args[1], "-") == 0) {
+        int start_index = strstr(path, args[2]) - path; // determine starting character for substring
+        int end_index = start_index + strlen(args[2]);                // determine ending character for substring
+
         if (strstr(path, args[2]) != NULL) { // if cmd_dirs contains the new directory as a substring
-            int start_index = strstr(path, args[2]) - path; // determine starting character for substring
-            int end_index = start_index + strlen(args[2]);                // determine ending character for substring
 
-            if (start_index != 0 && path[start_index - 1] == ':') {      // if the substring is preceded by a ":"...
-                start_index--;                                           // ...adjust start_index to be at the ":"
-            }
+            if (path[end_index] == ':') {
+                if (path[end_index] == '\0') {                               // if the substring is at the end of path...
+                    path[start_index] = '\0';                                // ...set the start of the substring to '\0'
+                }
 
-            if (path[end_index] == '\0') {                               // if the substring is at the end of path...
-                path[start_index] = '\0';                                // ...set the start of the substring to '\0'
-            }
+                if (start_index != 0 && path[start_index - 1] == ':') {      // if the substring is preceded by a ":"...
+                    start_index--;                                           // ...adjust start_index to be at the ":"
+                }
 
-            for (int i = 0; i < strlen(path) - start_index; i++) {
-                path[start_index + i] = path[end_index + i];             // shift all right values over
+                for (int i = 0; i < strlen(path) - start_index; i++) {
+                    path[start_index + i] = path[end_index + i];             // shift all right values over
+                }
+            } else {
+                err_ret("please enter the full directory to be removed");
             }
 
         } else {
