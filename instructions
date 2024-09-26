@@ -1,0 +1,44 @@
+Description:
+Your task is to write a UNIX-like shell program that works in our Linux machine in Lab FH 133E.  A shell is a command line interface for users. 
+It accepts user commands and execute them.  Under the hood, a shell is just another user program. For examples, /bin/sh, /bin/bash, /bin/tcsh, etc.,
+are popular shells in Unix/Linux systems.  In this assignment, you will implement your own shell, named as "myshell".
+Part1: Your shell should repeatedly display a prompt and allow the user to enter a command to run.  Your shell is supposed to read the input from system standard input, parse the line with command and arguments, and execute. You must use fork() and execv() system calls.
+Given a user command, your shell should try to find the build-in commands (see part2) first. If not found, it should search the directories stored in the pathname environment (your implementation). For example, if "/bin" appears in the pathname environment, your shell should automatically support most Linux shell commands.
+You are not allowed to use system() or any similar function that invoke the system's /bin/sh shell. Again, you are only allowed to use fork() and execv() to create a process and execute the user command. Note that you cannot use execlp() or execvp() because these will use the system's pathname environment as you should construct and maintain your own pathname environment in this project.
+By convention, the command arguments are separated by white spaces. Your implementation should follow this rule. Your shell does not need to handle special characters like ", ?, |, \, &", except input redirection "<" and output redirection ">".
+If the user command cannot be found, i.e., neither a build-in command nor a command can be found in the directories contained in the pathname environment, your shell must give a meaningful response and then continue display a prompt for the next command.
+Part2: Build-in commands:
+cd: is a command that changes directories. You should use chdir() system call to achieve it.
+path: is not only a command that shows the current command searching pathname environment (if no argument is given), but also a utility to modify the pathname environment.
+path (without argument): display the current pathname environment, e.g., "/bin:/sbin". Note, your shell starts with an empty pathname environment.
+path + /abc/def: appends directory "/abc/def" to the end of the pathname environment.
+path - /abc/def: removes pathname "/abc/def" from the pathname environment if it exists. Otherwise, do nothing.
+quit: a command to terminate your shell.
+Part3: Extend your shell to support I/O redirection: input redirection "<" and output redirection ">".  You must use open(), close(), and dup() system calls. Your shell does not need to handle redirection for above build-in commands. Note that either "<", or ">", or both may appear in a user's command. 
+README and makefile: must be a text file (not a PDF, docx, or rtf).
+Provide the group number and member name/CSUID. In addition, state the contribute (in percentage) of each member, such as 50%-50%, or 55%-45%.  Any group member whose contribution is below 40% will receive the corresponding point deduction, proportioning to the actual contribution.  If a group member contributes 0%, she or he will receive zero even if the other group partner scores 100%. 
+Document your design ideas in this README file. 
+Provide instructions how to compile your code, and how to run your program.
+Provide a sample test output (again in text format).
+Provide a statement if your code contains any bugs or miss a certain component. 
+You must provide a makefile such that the grader can compile your code by simply typing "make".
+System input and output rules: in this project, you can only use fgets() function to take the keyboard inputs, e.g., fgets(buffer, 1024, stdin) will capture a user command in a pre-prepared buffer of 1024 bytes.  For system output, you should use printf() function.  All file input/output must be performed via system calls, including open(), close().  The library calls such as fopen(), fread() are not allowed in this project.
+Grading criteria:
+Please make sure your program compiles, otherwise your submission will not be graded and you will receive zero.
+Point deduction rule:
+Compile warning: 2 points each.
+Minor error: such as not meeting the input/output requirements, or folder name is not compliant with the specification, 5 points each.
+Major error: examples include, infinite loop, runtime errors, unexpected program termination, any segmentation fault, 15 points each.
+[30 points] Build-in commands:
+Functional cd and quit commands
+Correct path operations with or without arguments
+[30 points] General shell operations:
+The shell starts with an empty pathname environment (no command should work)
+After "/bin" is added, Linux shell commands should be supported
+The shell should respond correctly and gracefully to any unsupported commands, including typo
+[30 points] I/O redirection:
+Correct input redirection
+Correct output redirection
+Correct input and output redirection (at the same time)
+[10 points] README and Makefile:
+README should contain sufficient information, including the compile instruction, execution instruction, and an output example.
